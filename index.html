@@ -147,6 +147,7 @@
     <div class="flex items-center gap-2">
       <!-- Sync Status Badge -->
       <button onclick="triggerForceSync()" class="p-2 rounded-xl bg-gray-900 border border-gray-800 text-gray-300 hover:text-white transition-all flex items-center gap-1.5 text-xs hover:border-brand-500/30" id="sync-btn" title="Sync with Drive">
+        <span class="w-2 h-2 rounded-full bg-gray-500" id="sync-indicator-dot"></span>
         <i data-lucide="refresh-cw" class="w-3.5 h-3.5" id="sync-icon"></i>
         <span class="hidden sm:inline" id="sync-status">Unlinked</span>
       </button>
@@ -224,7 +225,7 @@
             <span id="gdrive-status-badge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20">Disconnected</span>
           </div>
           
-          <p class="text-xs text-gray-400 mb-4 leading-relaxed">
+          <p id="gdrive-instructions" class="text-xs text-gray-400 mb-4 leading-relaxed bg-brand-950/20 border border-brand-900/30 rounded-xl p-2.5">
             Sync your logs silently to your private Google Drive file (`fitapp_workout_data.json`) for effortless multi-device backups.
           </p>
 
@@ -232,6 +233,10 @@
             <div>
               <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-1">OAuth Client ID</label>
               <input type="text" id="gdrive-client-id" class="w-full glass-input rounded-xl px-3 py-2 text-xs text-white" placeholder="your-client-id.apps.googleusercontent.com">
+            </div>
+            <div id="gdrive-client-secret-container">
+              <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-1">OAuth Client Secret</label>
+              <input type="password" id="gdrive-client-secret" class="w-full glass-input rounded-xl px-3 py-2 text-xs text-white" placeholder="your-client-secret">
             </div>
             <div>
               <label class="block text-[10px] font-semibold text-gray-400 uppercase mb-1">API Key</label>
@@ -502,6 +507,7 @@
       gdriveConnected: false,
       gdriveUserEmail: null,
       gdriveClientId: '',
+      gdriveClientSecret: '',
       gdriveApiKey: '',
       syncInProgress: false,
       gdriveToken: null,
@@ -625,13 +631,6 @@
           updatedAt: now
         }));
         await db.routines.bulkAdd(routinesToSave);
-      }
-
-      // Seed Google Drive credentials provided by user
-      const cId = await db.metadata.get('gdrive_client_id');
-      if (!cId) {
-        await db.metadata.put({ key: 'gdrive_client_id', value: '3140887675-udvk2rq3c0nki57imhfgri1oga723cgi.apps.googleusercontent.com' });
-        await db.metadata.put({ key: 'gdrive_api_key', value: 'AIzaSyD4FhC9iki90wumuhth242kUY5Z23Vzw2I' });
       }
     }
 
@@ -2489,26 +2488,102 @@
       modal.classList.add('hidden');
       modal.classList.remove('flex');
     }
-
     async function loadSavedCredentials() {
-      const cId = await db.metadata.get('gdrive_client_id');
-      const apiKey = await db.metadata.get('gdrive_api_key');
+      let clientId = '';
+      let clientSecret = '';
+      let apiKey = '';
+
+      // Retrieve from the stored unified configuration object
+      const config = await db.metadata.get('google_config');
+      if (config) {
+        clientId = config.clientId || '';
+        clientSecret = config.clientSecret || '';
+        apiKey = config.apiKey || '';
+      } else {
+        // Migration logic for old individual keys if present
+        const cId = await db.metadata.get('gdrive_client_id');
+        const aKey = await db.metadata.get('gdrive_api_key');
+        if (cId) clientId = cId.value || '';
+        if (aKey) apiKey = aKey.value || '';
+
+        if (cId || aKey) {
+          await db.metadata.put({ key: 'google_config', clientId, clientSecret, apiKey });
+          await db.metadata.delete('gdrive_client_id');
+          await db.metadata.delete('gdrive_api_key');
+        }
+      }
+
+      state.gdriveClientId = clientId;
+      state.gdriveClientSecret = clientSecret;
+      state.gdriveApiKey = apiKey;
+
       const conn = await db.metadata.get('gdrive_connected');
       const email = await db.metadata.get('gdrive_user_email');
       const token = await db.metadata.get('gdrive_token');
       const expiresAt = await db.metadata.get('gdrive_expires_at');
 
-      if (cId) state.gdriveClientId = cId.value;
-      if (apiKey) state.gdriveApiKey = apiKey.value;
-      if (conn) state.gdriveConnected = (conn.value === 'true');
-      if (email) state.gdriveUserEmail = email.value;
-      if (token) state.gdriveToken = JSON.parse(token.value);
-      if (expiresAt) state.gdriveExpiresAt = parseInt(expiresAt.value) || 0;
+      state.gdriveConnected = conn ? (conn.value === 'true') : false;
+      state.gdriveUserEmail = email ? email.value : null;
+      state.gdriveToken = token ? JSON.parse(token.value) : null;
+      state.gdriveExpiresAt = expiresAt ? (parseInt(expiresAt.value) || 0) : 0;
 
       document.getElementById('gdrive-client-id').value = state.gdriveClientId || '';
+      if (document.getElementById('gdrive-client-secret')) {
+        document.getElementById('gdrive-client-secret').value = state.gdriveClientSecret || '';
+      }
       document.getElementById('gdrive-api-key').value = state.gdriveApiKey || '';
 
       updateGoogleConnectionUI();
+
+      // Electron specific startup check for auto-login & sync
+      const isElectron = typeof window.electronAPI !== 'undefined';
+      if (isElectron) {
+        try {
+          const refreshToken = await window.electronAPI.getRefreshToken();
+          if (refreshToken && state.gdriveClientId && state.gdriveClientSecret) {
+            console.log('[Electron] Secure refresh token found on startup. Refreshing access token...');
+            const tokens = await window.electronAPI.refreshAccessToken(state.gdriveClientId, state.gdriveClientSecret, refreshToken);
+            if (tokens && tokens.access_token) {
+              state.gdriveToken = { ...state.gdriveToken, ...tokens };
+              state.gdriveConnected = true;
+              const newExpiresAt = Date.now() + (tokens.expires_in * 1000);
+              state.gdriveExpiresAt = newExpiresAt;
+
+              await db.metadata.put({ key: 'gdrive_connected', value: 'true' });
+              await db.metadata.put({ key: 'gdrive_token', value: JSON.stringify(state.gdriveToken) });
+              await db.metadata.put({ key: 'gdrive_expires_at', value: String(newExpiresAt) });
+
+              // Try to extract user email
+              try {
+                const userInfo = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${tokens.access_token}`).then(r => r.json());
+                if (userInfo.email) {
+                  state.gdriveUserEmail = userInfo.email;
+                  await db.metadata.put({ key: 'gdrive_user_email', value: userInfo.email });
+                }
+              } catch (err) {
+                console.warn('Could not extract token user email details', err);
+              }
+
+              updateGoogleConnectionUI();
+              
+              // Trigger silent sync in background
+              setTimeout(() => {
+                syncWithGoogleDriveSilent();
+              }, 2000);
+            }
+          } else {
+            console.log('[Electron] No secure refresh token found on startup. Opening settings.');
+            setTimeout(() => {
+              openSettingsModal();
+            }, 500);
+          }
+        } catch (err) {
+          console.error('[Electron] Silent startup refresh token error:', err);
+          setTimeout(() => {
+            openSettingsModal();
+          }, 500);
+        }
+      }
     }
 
     function updateGoogleConnectionUI() {
@@ -2517,6 +2592,39 @@
       const discBtn = document.getElementById('gdrive-disconnect-btn');
       const syncStatusText = document.getElementById('sync-status');
       const syncBtn = document.getElementById('sync-btn');
+      const indicatorDot = document.getElementById('sync-indicator-dot');
+
+      const isElectron = typeof window.electronAPI !== 'undefined';
+      const isConfigured = state.gdriveClientId && state.gdriveApiKey && (!isElectron || state.gdriveClientSecret);
+
+      // Dynamic visibility of Client Secret based on Environment
+      const secretContainer = document.getElementById('gdrive-client-secret-container');
+      if (secretContainer) {
+        if (isElectron) {
+          secretContainer.classList.remove('hidden');
+        } else {
+          secretContainer.classList.add('hidden');
+        }
+      }
+
+      // Dynamic instructions message based on Environment
+      const instructions = document.getElementById('gdrive-instructions');
+      if (instructions) {
+        if (isElectron) {
+          instructions.innerHTML = `
+            <strong>Desktop App Sync:</strong> Configured via Desktop OAuth. 
+            Configure your Google Cloud Project OAuth client ID as a <strong>Desktop application</strong>.
+            Copy your Client ID, Client Secret, and API Key below.
+          `;
+        } else {
+          instructions.innerHTML = `
+            <strong>Mobile PWA / Web Sync:</strong> Syncs to a private Google Drive file. 
+            Configure your Google Cloud OAuth Client ID as a <strong>Web application</strong>. 
+            Ensure you add the app's HTTPS domain (e.g. <code>https://yourdomain.com</code>) to the <strong>Authorized JavaScript origins</strong> in Google Cloud Console. 
+            <em>Note: Google OAuth is not supported on <code>file:///</code> origins.</em>
+          `;
+        }
+      }
 
       if (state.gdriveConnected) {
         badge.textContent = `Connected: ${state.gdriveUserEmail || 'Synced'}`;
@@ -2527,25 +2635,47 @@
         
         syncStatusText.textContent = 'Linked';
         syncBtn.className = 'p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 hover:text-white transition-all flex items-center gap-1.5 text-xs';
+        if (indicatorDot) {
+          indicatorDot.className = 'w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981]';
+        }
       } else {
-        badge.textContent = 'Disconnected';
-        badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20';
-        
-        connBtn.textContent = 'Save & Connect';
-        discBtn.classList.add('hidden');
-        
-        syncStatusText.textContent = 'Unlinked';
-        syncBtn.className = 'p-2 rounded-xl bg-gray-900 border border-gray-800 text-gray-300 hover:text-white transition-all flex items-center gap-1.5 text-xs';
+        if (!isConfigured) {
+          badge.textContent = 'Not Configured';
+          badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20';
+          
+          connBtn.textContent = 'Save & Connect';
+          discBtn.classList.add('hidden');
+          
+          syncStatusText.textContent = 'Not Configured';
+          syncBtn.className = 'p-2 rounded-xl bg-gray-900 border border-gray-800 text-gray-400 opacity-50 cursor-not-allowed transition-all flex items-center gap-1.5 text-xs';
+          if (indicatorDot) {
+            indicatorDot.className = 'w-2 h-2 rounded-full bg-gray-500';
+          }
+        } else {
+          badge.textContent = 'Disconnected';
+          badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 text-red-400 border border-red-500/20';
+          
+          connBtn.textContent = 'Save & Connect';
+          discBtn.classList.add('hidden');
+          
+          syncStatusText.textContent = 'Unlinked';
+          syncBtn.className = 'p-2 rounded-xl bg-gray-900 border border-gray-800 text-gray-300 hover:text-white transition-all flex items-center gap-1.5 text-xs';
+          if (indicatorDot) {
+            indicatorDot.className = 'w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_#f43f5e]';
+          }
+        }
       }
     }
 
     function saveGoogleCredentials() {
       try {
         const clientId = document.getElementById('gdrive-client-id').value.trim();
+        const clientSecret = document.getElementById('gdrive-client-secret') ? document.getElementById('gdrive-client-secret').value.trim() : '';
         const apiKey = document.getElementById('gdrive-api-key').value.trim();
 
-        if (!clientId || !apiKey) {
-          showToast('Please enter both Client ID and API Key!', 'error');
+        const isElectron = typeof window.electronAPI !== 'undefined';
+        if (!clientId || !apiKey || (isElectron && !clientSecret)) {
+          showToast(isElectron ? 'Please enter Client ID, Client Secret, and API Key!' : 'Please enter Client ID and API Key!', 'error');
           return;
         }
 
@@ -2555,22 +2685,65 @@
         }
 
         state.gdriveClientId = clientId;
+        state.gdriveClientSecret = clientSecret;
         state.gdriveApiKey = apiKey;
 
         // Perform IndexedDB metadata writes asynchronously in the background
         // to keep this click event handler synchronous for the browser's popup blocker.
-        db.metadata.put({ key: 'gdrive_client_id', value: clientId })
-          .catch(err => console.error('[Settings] Failed to save client ID to Dexie:', err));
-        db.metadata.put({ key: 'gdrive_api_key', value: apiKey })
-          .catch(err => console.error('[Settings] Failed to save API key to Dexie:', err));
+        // Save only in IndexedDB metadata (as unified configuration object) and never logs values.
+        db.metadata.put({ key: 'google_config', clientId, clientSecret, apiKey })
+          .catch(err => console.error('[Settings] Failed to save Google configuration to Dexie'));
 
-        showToast('Credentials cached. Launching Google OAuth consent popup...', 'info');
+        showToast('Credentials cached. Launching Google OAuth consent flow...', 'info');
         
-        initGoogleApiServices();
-        launchGoogleOAuthFlow();
+        if (isElectron) {
+          window.electronAPI.startOAuthFlow(clientId, clientSecret)
+            .then(async (tokens) => {
+              try {
+                if (tokens.refresh_token) {
+                  await window.electronAPI.saveRefreshToken(tokens.refresh_token);
+                }
+                
+                state.gdriveToken = tokens;
+                state.gdriveConnected = true;
+                const expiresAt = Date.now() + (tokens.expires_in * 1000);
+                state.gdriveExpiresAt = expiresAt;
+
+                await db.metadata.put({ key: 'gdrive_connected', value: 'true' });
+                await db.metadata.put({ key: 'gdrive_token', value: JSON.stringify(tokens) });
+                await db.metadata.put({ key: 'gdrive_expires_at', value: String(expiresAt) });
+
+                // Try to extract user email
+                try {
+                  const userInfo = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${tokens.access_token}`).then(r => r.json());
+                  if (userInfo.email) {
+                    state.gdriveUserEmail = userInfo.email;
+                    await db.metadata.put({ key: 'gdrive_user_email', value: userInfo.email });
+                  }
+                } catch (err) {
+                  console.warn('Could not extract token user email details', err);
+                }
+
+                updateGoogleConnectionUI();
+                showToast('Google Drive linked successfully! Performing first sync...');
+                closeSettingsModal();
+                triggerForceSync();
+              } catch (saveErr) {
+                console.error('[Settings] OAuth token processing failed:', saveErr);
+                showToast('OAuth flow succeeded but token saving failed.', 'error');
+              }
+            })
+            .catch(err => {
+              console.error('[Settings] OAuth loopback flow failed:', err);
+              showToast(`Authentication failed: ${err.message || err}`, 'error');
+            });
+        } else {
+          initGoogleApiServices();
+          launchGoogleOAuthFlow();
+        }
       } catch (err) {
-        console.error('[Settings] saveGoogleCredentials encountered error:', err);
-        showToast(`Save Error: ${err.message || err}`, 'error');
+        console.error('[Settings] saveGoogleCredentials encountered error');
+        showToast('Save Error: check console for details', 'error');
       }
     }
 
@@ -2585,6 +2758,15 @@
       await db.metadata.delete('gdrive_token');
       await db.metadata.delete('gdrive_expires_at');
 
+      const isElectron = typeof window.electronAPI !== 'undefined';
+      if (isElectron) {
+        try {
+          await window.electronAPI.deleteRefreshToken();
+        } catch (err) {
+          console.error('[Settings] Failed to delete refresh token:', err);
+        }
+      }
+
       showToast('Google Drive connection unlinked.', 'info');
       updateGoogleConnectionUI();
     }
@@ -2596,6 +2778,9 @@
     function initGoogleApiServices() {
       try {
         if (!state.gdriveClientId) return;
+
+        const isElectron = typeof window.electronAPI !== 'undefined';
+        if (isElectron) return; // Electron uses main process loopback server
 
         if (typeof google !== 'undefined' && google.accounts && google.accounts.oauth2 && !gisInited) {
           tokenClient = google.accounts.oauth2.initTokenClient({
@@ -2632,7 +2817,7 @@
                     await db.metadata.put({ key: 'gdrive_user_email', value: userInfo.email });
                   }
                 } catch (err) {
-                  console.warn('Could not extract token user email details', err);
+                  console.warn('Could not extract token user email details details', err);
                 }
 
                 updateGoogleConnectionUI();
@@ -2663,6 +2848,46 @@
 
     function launchGoogleOAuthFlow() {
       try {
+        const isElectron = typeof window.electronAPI !== 'undefined';
+        if (isElectron) {
+          showToast('Launching Google OAuth flow...', 'info');
+          window.electronAPI.startOAuthFlow(state.gdriveClientId, state.gdriveClientSecret)
+            .then(async (tokens) => {
+              if (tokens.refresh_token) {
+                await window.electronAPI.saveRefreshToken(tokens.refresh_token);
+              }
+              state.gdriveToken = tokens;
+              state.gdriveConnected = true;
+              const expiresAt = Date.now() + (tokens.expires_in * 1000);
+              state.gdriveExpiresAt = expiresAt;
+
+              await db.metadata.put({ key: 'gdrive_connected', value: 'true' });
+              await db.metadata.put({ key: 'gdrive_token', value: JSON.stringify(tokens) });
+              await db.metadata.put({ key: 'gdrive_expires_at', value: String(expiresAt) });
+
+              // Try to extract user email
+              try {
+                const userInfo = await fetch(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${tokens.access_token}`).then(r => r.json());
+                if (userInfo.email) {
+                  state.gdriveUserEmail = userInfo.email;
+                  await db.metadata.put({ key: 'gdrive_user_email', value: userInfo.email });
+                }
+              } catch (err) {
+                console.warn('Could not extract token user email details details', err);
+              }
+
+              updateGoogleConnectionUI();
+              showToast('Google Drive linked successfully! Performing first sync...');
+              closeSettingsModal();
+              triggerForceSync();
+            })
+            .catch(err => {
+              console.error('[Sync Engine] Electron OAuth Flow failed:', err);
+              showToast(`Authentication failed: ${err.message || err}`, 'error');
+            });
+          return;
+        }
+
         if (tokenClient) {
           // Request authorization (must run synchronously inside user interaction click event)
           tokenClient.requestAccessToken({ prompt: 'consent' });
@@ -2682,19 +2907,69 @@
     }
 
     function refreshGoogleToken(interactive = false) {
-      return new Promise((resolve, reject) => {
-        if (!tokenClient) {
-          reject(new Error('Google Identity Services client is not initialized. Check settings or reload.'));
-          return;
-        }
-        state.tokenResolve = resolve;
-        state.tokenReject = reject;
-        
-        if (interactive) {
-          tokenClient.requestAccessToken({ prompt: 'consent' });
+      return new Promise(async (resolve, reject) => {
+        const isElectron = typeof window.electronAPI !== 'undefined';
+        if (isElectron) {
+          try {
+            const refreshToken = await window.electronAPI.getRefreshToken();
+            if (!refreshToken) {
+              throw new Error('No refresh token stored.');
+            }
+            const tokens = await window.electronAPI.refreshAccessToken(state.gdriveClientId, state.gdriveClientSecret, refreshToken);
+            if (tokens && tokens.access_token) {
+              state.gdriveToken = { ...state.gdriveToken, ...tokens };
+              state.gdriveConnected = true;
+              const newExpiresAt = Date.now() + (tokens.expires_in * 1000);
+              state.gdriveExpiresAt = newExpiresAt;
+
+              await db.metadata.put({ key: 'gdrive_connected', value: 'true' });
+              await db.metadata.put({ key: 'gdrive_token', value: JSON.stringify(state.gdriveToken) });
+              await db.metadata.put({ key: 'gdrive_expires_at', value: String(newExpiresAt) });
+
+              updateGoogleConnectionUI();
+              resolve(state.gdriveToken);
+            } else {
+              throw new Error('No access token returned in refresh response.');
+            }
+          } catch (err) {
+            console.error('[Sync Engine] Electron refresh token error:', err);
+            if (interactive) {
+              window.electronAPI.startOAuthFlow(state.gdriveClientId, state.gdriveClientSecret)
+                .then(async (tokens) => {
+                  if (tokens.refresh_token) {
+                    await window.electronAPI.saveRefreshToken(tokens.refresh_token);
+                  }
+                  state.gdriveToken = tokens;
+                  state.gdriveConnected = true;
+                  const newExpiresAt = Date.now() + (tokens.expires_in * 1000);
+                  state.gdriveExpiresAt = newExpiresAt;
+
+                  await db.metadata.put({ key: 'gdrive_connected', value: 'true' });
+                  await db.metadata.put({ key: 'gdrive_token', value: JSON.stringify(tokens) });
+                  await db.metadata.put({ key: 'gdrive_expires_at', value: String(newExpiresAt) });
+                  
+                  updateGoogleConnectionUI();
+                  resolve(tokens);
+                })
+                .catch(reject);
+            } else {
+              reject(err);
+            }
+          }
         } else {
-          // Attempt silent refresh
-          tokenClient.requestAccessToken({ prompt: '' });
+          if (!tokenClient) {
+            reject(new Error('Google Identity Services client is not initialized. Check settings or reload.'));
+            return;
+          }
+          state.tokenResolve = resolve;
+          state.tokenReject = reject;
+          
+          if (interactive) {
+            tokenClient.requestAccessToken({ prompt: 'consent' });
+          } else {
+            // Attempt silent refresh
+            tokenClient.requestAccessToken({ prompt: '' });
+          }
         }
       });
     }
@@ -2727,9 +3002,17 @@
     }
 
     async function triggerForceSync() {
-      if (!state.gdriveConnected) {
-        showToast('Google Drive is not configured! Check settings.', 'error');
+      const isElectron = typeof window.electronAPI !== 'undefined';
+      const isConfigured = state.gdriveClientId && state.gdriveApiKey && (!isElectron || state.gdriveClientSecret);
+      if (!isConfigured) {
+        showToast('Google Drive is not configured! Please set up credentials in Settings.', 'error');
         openSettingsModal();
+        return;
+      }
+
+      if (!state.gdriveConnected) {
+        showToast('Google Drive is not connected! Authorizing...', 'info');
+        launchGoogleOAuthFlow();
         return;
       }
 

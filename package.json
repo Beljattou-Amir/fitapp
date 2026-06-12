@@ -1,0 +1,29 @@
+{
+  "name": "fitapp",
+  "version": "1.0.0",
+  "description": "FitApp Premium Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-packager . FitApp --platform=win32 --arch=x64 --out=dist --overwrite"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.0",
+    "electron-packager": "^17.1.2"
+  },
+  "build": {
+    "appId": "com.fitapp.premium",
+    "win": {
+      "target": "portable"
+    },
+    "files": [
+      "index.html",
+      "sw.js",
+      "manifest.json",
+      "main.js",
+      "preload.js",
+      "icon.svg"
+    ]
+  }
+}
