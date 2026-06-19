@@ -62,7 +62,7 @@ ipcMain.handle('save-refresh-token', async (event, token) => {
     const payload = {
       refreshToken: encryptedBuffer.toString('base64')
     };
-    fs.writeFileSync(getSecureStorePath(), JSON.stringify(payload), 'utf8');
+    await fs.promises.writeFile(getSecureStorePath(), JSON.stringify(payload), 'utf8');
     return { success: true };
   } catch (err) {
     console.error('[Main Process] Failed to securely save refresh token:', err);
@@ -74,10 +74,15 @@ ipcMain.handle('save-refresh-token', async (event, token) => {
 ipcMain.handle('get-refresh-token', async () => {
   try {
     const storePath = getSecureStorePath();
-    if (!fs.existsSync(storePath)) {
-      return null;
+    let rawData;
+    try {
+      rawData = await fs.promises.readFile(storePath, 'utf8');
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        return null;
+      }
+      throw err;
     }
-    const rawData = fs.readFileSync(storePath, 'utf8');
     const payload = JSON.parse(rawData);
     if (!payload.refreshToken) {
       return null;
@@ -98,8 +103,12 @@ ipcMain.handle('get-refresh-token', async () => {
 ipcMain.handle('delete-refresh-token', async () => {
   try {
     const storePath = getSecureStorePath();
-    if (fs.existsSync(storePath)) {
-      fs.unlinkSync(storePath);
+    try {
+      await fs.promises.unlink(storePath);
+    } catch (err) {
+      if (err.code !== 'ENOENT') {
+        throw err;
+      }
     }
     return { success: true };
   } catch (err) {
