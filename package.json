@@ -5,12 +5,15 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-packager . FitApp --platform=win32 --arch=x64 --out=dist --overwrite"
+    "dist": "electron-packager . FitApp --platform=win32 --arch=x64 --out=dist --overwrite",
+    "test": "jest"
   },
   "devDependencies": {
     "electron": "^28.0.0",
     "electron-builder": "^24.9.0",
-    "electron-packager": "^17.1.2"
+    "electron-packager": "^17.1.2",
+    "jest": "^30.4.2",
+    "jest-environment-jsdom": "^30.4.1"
   },
   "build": {
     "appId": "com.fitapp.premium",
