@@ -17,6 +17,7 @@
   <script src="https://cdn.jsdelivr.net/npm/dexie@latest/dist/dexie.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide/dist/umd/lucide.min.js"></script>
+  <script src="src/analytics.js"></script>
   
   <!-- Google API SDK Script Callbacks (Must be defined before script tags load to prevent race ReferenceErrors) -->
   <script>
@@ -2318,25 +2319,7 @@
       if (!exercise) return;
 
       // Extract all completions for this exercise from workout logs
-      const history = [];
-      state.workoutLogs.forEach(log => {
-        log.blocks.forEach(b => {
-          b.exercises.forEach(subEx => {
-            if (subEx.exerciseId === exerciseId) {
-              subEx.sets.forEach(s => {
-                if (s.completed) {
-                  history.push({
-                    date: log.date,
-                    weight: parseFloat(s.weight) || 0,
-                    reps: parseInt(s.reps) || 0,
-                    type: s.type
-                  });
-                }
-              });
-            }
-          });
-        });
-      });
+      const history = extractHistory(state.workoutLogs, exerciseId);
 
       if (history.length === 0) {
         container.innerHTML = `
@@ -2370,39 +2353,10 @@
       lucide.createIcons();
 
       // --- CALCULATE ESTIMATED 1RM DATA ---
-      // Brzycki formula: 1RM = Weight / (1.0278 - (0.0278 * Reps))
-      // Filter out Warm-up sets
-      const nonWarmups = history.filter(h => h.type !== 'Warm-up');
-      
-      // Group by date, get max 1RM per day
-      const dailyOnerm = {};
-      nonWarmups.forEach(h => {
-        let onerm = 0;
-        if (exercise.type === 'time') {
-          onerm = h.reps; // Hold time is standard metric
-        } else {
-          onerm = h.reps === 1 ? h.weight : (h.weight / (1.0278 - (0.0278 * h.reps)));
-        }
-        
-        if (!dailyOnerm[h.date] || dailyOnerm[h.date] < onerm) {
-          dailyOnerm[h.date] = Math.round(onerm * 10) / 10;
-        }
-      });
-
-      const onermDates = Object.keys(dailyOnerm).sort();
-      const onermVals = onermDates.map(d => dailyOnerm[d]);
+      const { dates: onermDates, vals: onermVals } = calculateOneRm(history, exercise.type);
 
       // --- CALCULATE WEEKLY VOLUME DATA ---
-      // volume = Sets * Reps * Weight per week
-      const weeklyVolume = {};
-      nonWarmups.forEach(h => {
-        const weekStr = getStartOfWeekString(new Date(h.date));
-        const vol = h.weight * h.reps;
-        weeklyVolume[weekStr] = (weeklyVolume[weekStr] || 0) + vol;
-      });
-
-      const volumeWeeks = Object.keys(weeklyVolume).sort();
-      const volumeVals = volumeWeeks.map(w => weeklyVolume[w]);
+      const { weeks: volumeWeeks, vals: volumeVals } = calculateWeeklyVolume(history);
 
       // --- PLOT 1RM LINE CHART ---
       const ctx1 = document.getElementById('oneRmChart').getContext('2d');
