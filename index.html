@@ -418,6 +418,26 @@
         <button onclick="closeAssignRoutineModal()" class="py-2.5 px-4 rounded-xl bg-gray-950 border border-gray-900 text-gray-400 hover:text-white text-xs font-semibold active:scale-95 transition-all">Cancel</button>
       </div>
     </div>
+  <!-- 7. Custom Input Prompt Modal -->
+  <div id="prompt-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4 bg-black/60 backdrop-blur-sm transition-all duration-300">
+    <div class="glass-panel w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up flex flex-col">
+      <div class="flex items-center justify-between border-b border-gray-900/60 pb-3 mb-4">
+        <h2 id="prompt-modal-title" class="text-base font-bold text-white">Create New Routine</h2>
+        <button onclick="closePromptModal()" class="p-1.5 rounded-xl hover:bg-gray-800 text-gray-400 hover:text-white transition-all"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      
+      <div class="flex flex-col gap-4">
+        <div>
+          <label id="prompt-modal-label" class="block text-xs font-bold text-gray-400 uppercase mb-1.5">Routine Name</label>
+          <input type="text" id="prompt-modal-input" class="w-full glass-input rounded-xl px-4 py-3 text-sm text-white" placeholder="e.g. Legs Power Day">
+        </div>
+        
+        <div class="flex justify-end gap-2.5 mt-2">
+          <button onclick="closePromptModal()" class="py-2.5 px-4 rounded-xl bg-gray-950 border border-gray-900 text-gray-400 text-xs font-semibold active:scale-95 transition-all">Cancel</button>
+          <button id="prompt-modal-submit" class="py-2.5 px-5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold active:scale-95 transition-all">Create</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- 6. Confetti / Success Overlay Screen -->
@@ -2905,40 +2925,83 @@
       }
     }
 
-    async function createAndAssignNewRoutine() {
-      const routineName = prompt("Enter the name of the new routine (e.g., Lower Body Power):");
-      if (!routineName || !routineName.trim()) return;
-
-      try {
-        const newRoutine = {
-          id: 'rt_' + generateUUID(),
-          name: routineName.trim(),
-          notes: 'Created via strategy board.',
-          blocks: [],
-          updatedAt: Date.now()
-        };
-
-        await db.routines.add(newRoutine);
-        
-        await db.schedules.add({
-          id: 'sc_' + generateUUID(),
-          date: state.currentScheduleAssigningDate,
-          routineId: newRoutine.id,
-          updatedAt: Date.now()
-        });
-
-        showToast(`Routine "${newRoutine.name}" created and scheduled.`);
-        closeAssignRoutineModal();
-        await refreshStateData();
-        renderApp();
-
-        if (state.gdriveConnected) {
-          syncWithGoogleDriveSilent();
+    function showCustomPrompt(title, label, placeholder, callback) {
+      document.getElementById('prompt-modal-title').textContent = title;
+      document.getElementById('prompt-modal-label').textContent = label;
+      
+      const input = document.getElementById('prompt-modal-input');
+      input.value = '';
+      input.placeholder = placeholder;
+      
+      const submitBtn = document.getElementById('prompt-modal-submit');
+      submitBtn.onclick = () => {
+        const val = input.value.trim();
+        if (val) {
+          callback(val);
+          closePromptModal();
+        } else {
+          showToast('Please enter a valid name!', 'error');
         }
-      } catch (err) {
-        console.error('Failed to create and assign new routine:', err);
-        showToast('Database error creating routine.', 'error');
-      }
+      };
+
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          submitBtn.click();
+        }
+      };
+
+      const modal = document.getElementById('prompt-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      lucide.createIcons();
+      input.focus();
+    }
+
+    function closePromptModal() {
+      const modal = document.getElementById('prompt-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    async function createAndAssignNewRoutine() {
+      closeAssignRoutineModal();
+
+      showCustomPrompt(
+        "Create New Routine",
+        "Routine Name",
+        "e.g. Legs Power Day",
+        async (routineName) => {
+          try {
+            const newRoutine = {
+              id: 'rt_' + generateUUID(),
+              name: routineName,
+              notes: 'Created via strategy board.',
+              blocks: [],
+              updatedAt: Date.now()
+            };
+
+            await db.routines.add(newRoutine);
+            
+            await db.schedules.add({
+              id: 'sc_' + generateUUID(),
+              date: state.currentScheduleAssigningDate,
+              routineId: newRoutine.id,
+              updatedAt: Date.now()
+            });
+
+            showToast(`Routine "${newRoutine.name}" created and scheduled.`);
+            await refreshStateData();
+            renderApp();
+
+            if (state.gdriveConnected) {
+              syncWithGoogleDriveSilent();
+            }
+          } catch (err) {
+            console.error('Failed to create and assign new routine:', err);
+            showToast('Database error creating routine.', 'error');
+          }
+        }
+      );
     }
 
     async function unscheduleRoutineFromKanban(scheduleId) {
