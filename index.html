@@ -281,8 +281,8 @@
   </div>
 
   <!-- 2. Routine Creator / Editor Modal -->
-  <div id="routine-modal" class="fixed inset-0 z-50 hidden bg-black/75 backdrop-blur-md overflow-y-auto px-4 py-6">
-    <div class="glass-panel w-full max-w-2xl rounded-3xl p-6 shadow-2xl animate-fade-in mx-auto flex flex-col min-h-[85vh]">
+  <div id="routine-modal" class="fixed inset-0 z-50 hidden items-center justify-center px-4 bg-black/75 backdrop-blur-md transition-all duration-300">
+    <div class="glass-panel w-full max-w-2xl rounded-3xl p-6 shadow-2xl animate-fade-in flex flex-col max-h-[90vh]">
       <div class="flex items-center justify-between border-b border-gray-900/60 pb-3 mb-4">
         <h2 id="routine-modal-title" class="text-xl font-bold">Create Custom Routine</h2>
         <button onclick="closeRoutineModal()" class="p-1.5 rounded-xl hover:bg-gray-800 text-gray-400 hover:text-white transition-all"><i data-lucide="x"></i></button>
@@ -291,11 +291,11 @@
       <div class="flex flex-col gap-4 flex-grow">
         <div>
           <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Routine Name</label>
-          <input type="text" id="routine-name" class="w-full glass-input rounded-xl px-4 py-3 text-sm text-white" placeholder="e.g. Push Day Power">
+          <input type="text" id="routine-name" style="-webkit-user-select: text !important; user-select: text !important;" class="w-full glass-input rounded-xl px-4 py-3 text-sm text-white" placeholder="e.g. Push Day Power">
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Routine Notes</label>
-          <textarea id="routine-notes" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white h-16 resize-none" placeholder="Target rest between 2-3 mins..."></textarea>
+          <textarea id="routine-notes" style="-webkit-user-select: text !important; user-select: text !important;" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white h-16 resize-none" placeholder="Target rest between 2-3 mins..."></textarea>
         </div>
 
         <div class="border-t border-gray-900/60 pt-4 flex-grow">
@@ -336,7 +336,7 @@
       <div class="flex flex-col gap-4 overflow-y-auto flex-grow">
         <div>
           <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Exercise Name</label>
-          <input type="text" id="exercise-name" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white" placeholder="e.g. Incline Dumbbell Press">
+          <input type="text" id="exercise-name" style="-webkit-user-select: text !important; user-select: text !important;" class="w-full glass-input rounded-xl px-4 py-2.5 text-sm text-white" placeholder="e.g. Incline Dumbbell Press">
         </div>
         
         <div class="grid grid-cols-2 gap-3">
@@ -349,7 +349,7 @@
           </div>
           <div>
             <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Default Rest (sec)</label>
-            <input type="number" id="exercise-rest" class="w-full glass-input rounded-xl px-3 py-2.5 text-sm text-white" placeholder="90" value="90">
+            <input type="number" id="exercise-rest" style="-webkit-user-select: text !important; user-select: text !important;" class="w-full glass-input rounded-xl px-3 py-2.5 text-sm text-white" placeholder="90" value="90">
           </div>
         </div>
 
@@ -365,7 +365,7 @@
 
         <div>
           <label class="block text-xs font-bold text-gray-400 uppercase mb-1">Notes / Instructions</label>
-          <textarea id="exercise-notes" class="w-full glass-input rounded-xl px-4 py-2 text-sm text-white h-20 resize-none" placeholder="Focus on form, lock elbows at peak..."></textarea>
+          <textarea id="exercise-notes" style="-webkit-user-select: text !important; user-select: text !important;" class="w-full glass-input rounded-xl px-4 py-2 text-sm text-white h-20 resize-none" placeholder="Focus on form, lock elbows at peak..."></textarea>
         </div>
       </div>
 
@@ -387,7 +387,7 @@
       <!-- Search Box -->
       <div class="relative mb-3">
         <i data-lucide="search" class="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500"></i>
-        <input type="text" id="picker-search" oninput="filterPickerExercises()" class="w-full glass-input rounded-xl pl-10 pr-4 py-2.5 text-xs text-white" placeholder="Search exercise library...">
+        <input type="text" id="picker-search" style="-webkit-user-select: text !important; user-select: text !important;" oninput="filterPickerExercises()" class="w-full glass-input rounded-xl pl-10 pr-4 py-2.5 text-xs text-white" placeholder="Search exercise library...">
       </div>
 
       <div class="overflow-y-auto flex-grow flex flex-col gap-2 pr-1" id="picker-list-container">
@@ -1952,6 +1952,13 @@
       const modal = document.getElementById('routine-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+
+      setTimeout(() => {
+        const input = document.getElementById('routine-name');
+        if (input) {
+          input.focus();
+        }
+      }, 50);
     }
 
     function editSavedRoutine(id) {
@@ -1970,6 +1977,13 @@
       const modal = document.getElementById('routine-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+
+      setTimeout(() => {
+        const input = document.getElementById('routine-name');
+        if (input) {
+          input.focus();
+        }
+      }, 50);
     }
 
     function closeRoutineModal() {
@@ -2255,6 +2269,13 @@
       const modal = document.getElementById('exercise-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+
+      setTimeout(() => {
+        const input = document.getElementById('exercise-name');
+        if (input) {
+          input.focus();
+        }
+      }, 50);
     }
 
     function closeExerciseModal() {
