@@ -16,7 +16,13 @@ function getLocalDateString(date) {
  * @returns {string} The formatted YYYY-MM-DD string of Monday of that week.
  */
 function getStartOfWeekString(date) {
-  const d = new Date(date);
+  let d;
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const parts = date.split('-');
+    d = new Date(parts[0], parts[1] - 1, parts[2]);
+  } else {
+    d = new Date(date);
+  }
   const day = d.getDay();
   // Adjust for Monday being the start of the week (1 = Monday, 0 = Sunday -> shift back 6)
   const diff = d.getDate() - day + (day === 0 ? -6 : 1);
@@ -33,7 +39,8 @@ function getStartOfWeekString(date) {
 function getCurrentWeekDates(referenceDate = new Date()) {
   const dates = [];
   const mondayStr = getStartOfWeekString(referenceDate);
-  const monday = new Date(mondayStr);
+  const parts = mondayStr.split('-');
+  const monday = new Date(parts[0], parts[1] - 1, parts[2]);
   for (let i = 0; i < 7; i++) {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);

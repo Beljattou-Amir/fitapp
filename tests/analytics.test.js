@@ -82,5 +82,10 @@ describe('Analytics Calculations', () => {
     // 100 * 5 = 500 (ignores warm-up)
     // 105 * 5 = 525
     expect(volume.vals).toEqual([500, 525]);
+
+    // Timezone safety check: A Monday date string should start the week on itself
+    const mondayHistory = [{ date: '2023-10-02', weight: 100, reps: 5, type: 'Normal' }];
+    const mondayVolume = calculateWeeklyVolume(mondayHistory);
+    expect(mondayVolume.weeks).toEqual(['2023-10-02']);
   });
 });

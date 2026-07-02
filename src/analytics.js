@@ -6,7 +6,13 @@ function getLocalDateString(date) {
 }
 
 function getStartOfWeekString(date) {
-  const d = new Date(date);
+  let d;
+  if (typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    const parts = date.split('-');
+    d = new Date(parts[0], parts[1] - 1, parts[2]);
+  } else {
+    d = new Date(date);
+  }
   const day = d.getDay();
   const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday week start
   const start = new Date(d.setDate(diff));
@@ -64,7 +70,7 @@ function calculateWeeklyVolume(history) {
   const weeklyVolume = {};
 
   nonWarmups.forEach(h => {
-    const weekStr = getStartOfWeekString(new Date(h.date));
+    const weekStr = getStartOfWeekString(h.date);
     const vol = h.weight * h.reps;
     weeklyVolume[weekStr] = (weeklyVolume[weekStr] || 0) + vol;
   });
