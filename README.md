@@ -6,30 +6,53 @@ FitApp Premium is a local-first, highly-polished, offline-capable workout tracki
 
 ## 🌟 Functional Features
 
-### 1. Today Dashboard & Workout Tracker
-* **Active Workout Sessions**: Start an ad-hoc session or load a pre-scheduled routine. Includes an active stopwatch.
-* **Sets & Superset Tracking**: Mark sets as completed. Supports single exercise blocks and linked supersets.
-* **Smart Rest Timer**: A floating, interactive banner that counts down between sets. Easily add `+15s` or skip.
-* **Volume & Set Recaps**: Post-workout celebration showing duration, total volume lifted (kg), and total sets completed.
+### 1. Today Dashboard & Active Workout Tracker
+* **Flexible Workout Modes**: Start an ad-hoc session on the fly (fully customizable) or select a pre-scheduled routine guide from the dashboard list.
+* **Stopwatch Display**: Dynamic workout duration stopwatch displaying elapsed time (`HH:MM:SS` format).
+* **Multi-type Set Logging**: Set types can be set to **Normal (N)**, **Warm-up (W)**, or **Dropset (D)**.
+* **Weight & Rep Target Pre-filling**: Workout inputs pre-fill actual weight and reps with routine target specifications, allowing athletes to log a completed set with a single tap.
+* **Haptic Feedback**: High-polish user feedback triggering a 40ms vibration pulse when logging set completions on supported mobile devices.
+* **Smart Rest Timer**: A floating, interactive count-down timer banner that slides up automatically upon set completion. Supports `+15s` adjustments, skipping, and triggers a triple haptic vibration buzz upon timer completion.
+* **Active Session Persistence (Cache)**: Persists active workout sessions in Dexie IndexedDB cache. If the application is closed or reloaded, state is fully recovered.
+* **Mid-Workout Customizations**: Dynamic options to add/delete sets, delete individual exercise blocks, or add new exercises from the global library mid-session.
+* **Inline Notes & Details**: Review instruction details and add persistent trainer/form notes directly inside active workout tracks.
+* **Celebration Recap Overlay**: Completion overlay displaying session duration (minutes), total completed sets, and total volume lifted (excluding warm-up sets).
 
-### 2. Routine Builder & Exercise Library
-* **Custom Routines**: Build and edit customized routines (e.g., Push/Pull/Legs). Add supersets, re-order exercises, and add custom trainer notes.
-* **Log Types**: Supports logging exercises by **Reps & Weight** or **Duration (Time)**.
-* **Exercise Library**: Seeded with standard movements, expandable with custom definitions (supporting bodyweight exclusions for plate calculation).
+### 2. Weekly Workout Strategy Board (Planner)
+* **Interactive Kanban Board**: Visual weekly planner (Monday to Sunday) allowing drag-and-drop repositioning of exercises.
+* **Drag-and-Drop Repositioning**: powered by `SortableJS`, allowing exercises to be re-ordered inside a routine or dragged to other routines.
+* **Visual Theme Categorization**: Routine cards are dynamically styled (background, border, text colors) matching training categories (e.g. *Push*, *Pull*, *Legs*, *Core*, *Cardio*) or fallback hashes.
+* **Inline Card Editing**: Update target sets and reps directly on the board cards without opening separate modals.
+* **Strategic Scheduling Triggers**: Assign existing routines to any day, unschedule routines, create and assign new routines on the fly, or delete routine templates permanently from the library.
 
-### 3. Training Calendar & Consistency Streaks
-* **Scheduler**: Click any future date on the interactive calendar to assign routines.
-* **Logs & History**: Click past dates to view detailed, read-only summaries of logged workouts.
-* **Streaks**: Displays consistency indicators and streaks to keep athletes motivated.
+### 3. Routine Builder & Exercise Library
+* **Custom Routine Templates**: Configure and edit customized templates (e.g. Push/Pull/Legs) with custom trainer descriptions and block orderings.
+* **Supersets Connection**: Connect individual exercises into linked **Supersets** or split them back into single exercise blocks.
+* **Exercise Definition Library**: Global library seeded with standard movements, expandable with custom definitions.
+* **Logging Formats**: Configure exercise definitions as **Reps-based** or **Time-based (duration/seconds)**.
+* **Bodyweight Flag Exclusion**: Mark exercises as bodyweight to automatically disable weight input fields throughout the app.
+* **Default Rest Durations**: Define target rest intervals per exercise.
+* **Persistent Directives**: Input global instruction details for each movement.
 
-### 4. Progress Analytics
-* **Progression Charts**: Interactive charts demonstrating workout frequency and total volume history.
-* **Estimated 1RM**: Projections for key lifts over time using standardized rep-max formulas.
+### 4. Training Calendar & Logs History
+* **Timeline Calendar**: Vertical sliding calendar covering a 3-week window (-14 days to +7 days) for strategic log tracking and future planning.
+* **Logs & Summaries**: Select past dates to review detailed, read-only recap summaries of completed workouts.
+* **Data Corrections**: Delete past workout logs, immediately updating streaks, logs, and progress charts.
 
-### 5. Multi-Device Cloud Sync & Backups
-* **Google Drive Sync**: Backs up and merges data to a private file (`fitapp_workout_data.json`) in the user's Drive.
-* **Conflict-Free Merging**: Integrates timestamp-based synchronization to merge local and remote changes safely.
-* **Local JSON Backups**: Support for manual file exports and imports to migrate data instantly.
+### 5. Performance Progress Analytics
+* **Estimated 1RM (1-Rep Max) Progression**: Visual line charts tracking estimated 1RM over time using the standard **Brzycki formula** (or holds/duration for time exercises), automatically excluding warm-up sets.
+* **Weekly Logged Volume**: Bar charts detailing total volume lifted per Monday-start week (excluding warm-up sets).
+* **Interactive Dropdown Selector**: Dropdown selector to swap exercise graphs immediately. Powered by Chart.js.
+
+### 6. Storage & Cloud Synchronization
+* **IndexedDB Local Storage**: Local-first operational design. Client-side IndexedDB database wrapped with Dexie.js for offline usage.
+* **Conflict-Free Merging**: Integrates timestamp-based synchronization (comparing `updatedAt` properties of records) to merge local and remote changes safely.
+* **Silent Background Sync**: Synchronizes to Google Drive automatically on user actions (finish workout, delete log, schedule, edit definitions).
+* **Google Drive Integration**: Safe cloud storage in a private file (`fitapp_workout_data.json`) in the user's Drive.
+* **Double-Authentication Architecture**:
+  * *Desktop App (Electron)*: Uses local loopback server OAuth redirection (port 8085). Encrypts the refresh token using Chromium's OS-native `safeStorage` API.
+  * *Mobile PWA / Web*: Uses Google Identity Services (GIS) token flow.
+* **Local JSON Backups**: Manual exports and imports of full database JSON backups, supporting timestamp-based merge logic.
 
 ---
 
@@ -76,9 +99,15 @@ graph TD
 
 ## 📁 Project Directory Structure
 
-* 📄 [index.html](file:///c:/Users/amirb/Desktop/fitapp/index.html): The entire Single Page Application (SPA), containing the Tailwind UI layouts, templates, and the client-side state engine and synchronization logic.
-* 📄 [main.js](file:///c:/Users/amirb/Desktop/fitapp/main.js): Electron process manager, secure token storage, and loopback HTTP server.
-* 📄 [preload.js](file:///c:/Users/amirb/Desktop/fitapp/preload.js): Context bridge exposing safe main process bindings to the web window.
+* 📄 [index.html](file:///c:/Users/amirb/Desktop/fitapp/index.html): The entire Single Page Application (SPA) UI, housing the HTML templates, Tailwind layouts, state manager UI views, and Google Drive GAPI/GIS sync script configurations.
+* 📁 `src`:
+  * 📄 [src/analytics.js](file:///c:/Users/amirb/Desktop/fitapp/src/analytics.js): Core calculation engine. Computes Brzycki 1RM projections, Monday-start weekly volumes, and filters log history entries.
+  * 📄 [src/planner.js](file:///c:/Users/amirb/Desktop/fitapp/src/planner.js): Planner logic helpers, calendar week generator, and routine visual color theme hashes.
+* 📁 `tests`:
+  * 📄 [tests/analytics.test.js](file:///c:/Users/amirb/Desktop/fitapp/tests/analytics.test.js): Jest tests for 1RM, weekly volume, and log filters.
+  * 📄 [tests/planner.test.js](file:///c:/Users/amirb/Desktop/fitapp/tests/planner.test.js): Jest tests for calendar date computations and routine themes.
+* 📄 [main.js](file:///c:/Users/amirb/Desktop/fitapp/main.js): Electron backend setup, OS `safeStorage` token wrappers, and loopback OAuth redirect server.
+* 📄 [preload.js](file:///c:/Users/amirb/Desktop/fitapp/preload.js): Secure context bridge mapping safe electron ipc main callbacks.
 * 📄 [sw.js](file:///c:/Users/amirb/Desktop/fitapp/sw.js): PWA service worker caching CDN and local assets.
 * 📄 [manifest.json](file:///c:/Users/amirb/Desktop/fitapp/manifest.json): Configuration file allowing the application to be installable on mobile.
 * 📄 [package.json](file:///c:/Users/amirb/Desktop/fitapp/package.json): Electron dev dependencies, executable run scripts, and package descriptors.

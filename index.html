@@ -3197,6 +3197,7 @@
               }
 
               updateGoogleConnectionUI();
+              renderApp();
               
               // Trigger silent sync in background
               setTimeout(() => {
@@ -3226,8 +3227,12 @@
       const syncBtn = document.getElementById('sync-btn');
       const indicatorDot = document.getElementById('sync-indicator-dot');
 
+      // Guard: DOM elements may not exist yet during early startup
+      if (!badge || !connBtn || !discBtn || !syncStatusText || !syncBtn) return;
+
       const isElectron = typeof window.electronAPI !== 'undefined';
       const isConfigured = state.gdriveClientId && state.gdriveApiKey && (!isElectron || state.gdriveClientSecret);
+
 
       // Dynamic visibility of Client Secret based on Environment
       const secretContainer = document.getElementById('gdrive-client-secret-container');
@@ -3357,6 +3362,7 @@
                 }
 
                 updateGoogleConnectionUI();
+                renderApp();
                 showToast('Google Drive linked successfully! Performing first sync...');
                 closeSettingsModal();
                 triggerForceSync();
@@ -3509,6 +3515,7 @@
               }
 
               updateGoogleConnectionUI();
+              renderApp();
               showToast('Google Drive linked successfully! Performing first sync...');
               closeSettingsModal();
               triggerForceSync();
@@ -3679,6 +3686,9 @@
         await ensureValidToken(false);
         await executeGoogleDriveSync();
         console.log('[Sync Engine] Silent Sync merged fully.');
+        // Refresh UI to reflect any data merged from remote
+        await refreshStateData();
+        renderApp();
       } catch (err) {
         console.warn('[Sync Engine] Silent Sync failed (gracefully catches network disruptions):', err);
       } finally {
