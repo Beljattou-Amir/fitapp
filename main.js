@@ -19,6 +19,10 @@ function createWindow() {
     title: "FitApp Premium"
   });
 
+  // Clear cache and service workers on startup during development to prevent stale Service Worker caching issues
+  mainWindow.webContents.session.clearCache();
+  mainWindow.webContents.session.clearStorageData({ storages: ['serviceworkers'] });
+  
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
   mainWindow.on('closed', () => {

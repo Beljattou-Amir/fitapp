@@ -1,4 +1,4 @@
-const CACHE_NAME = 'fitapp-v1';
+const CACHE_NAME = 'fitapp-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,7 +7,8 @@ const ASSETS_TO_CACHE = [
   'https://cdn.tailwindcss.com',
   'https://cdn.jsdelivr.net/npm/dexie@latest/dist/dexie.js',
   'https://cdn.jsdelivr.net/npm/chart.js',
-  'https://cdn.jsdelivr.net/npm/lucide/dist/umd/lucide.min.js'
+  'https://cdn.jsdelivr.net/npm/lucide/dist/umd/lucide.min.js',
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
 ];
 
 // Install Event - Pre-cache assets

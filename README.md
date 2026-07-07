@@ -1,6 +1,6 @@
 # FitApp Premium Workout Tracker
 
-FitApp Premium is a local-first, highly-polished, offline-capable workout tracking and planning companion. It is designed to work seamlessly as a native desktop application (via Electron) or as a Progressive Web App (PWA) on mobile devices, featuring conflict-free Google Drive synchronization.
+FitApp Premium is a local-first, highly-polished, offline-capable workout tracking and planning companion. It is designed to work seamlessly as a native desktop application (via Electron) or as a Progressive Web App (PWA) on mobile devices, featuring a centralized multi-user Supabase backend for authentication and sync.
 
 ---
 
@@ -47,11 +47,11 @@ FitApp Premium is a local-first, highly-polished, offline-capable workout tracki
 ### 6. Storage & Cloud Synchronization
 * **IndexedDB Local Storage**: Local-first operational design. Client-side IndexedDB database wrapped with Dexie.js for offline usage.
 * **Conflict-Free Merging**: Integrates timestamp-based synchronization (comparing `updatedAt` properties of records) to merge local and remote changes safely.
-* **Silent Background Sync**: Synchronizes to Google Drive automatically on user actions (finish workout, delete log, schedule, edit definitions).
-* **Google Drive Integration**: Safe cloud storage in a private file (`fitapp_workout_data.json`) in the user's Drive.
-* **Double-Authentication Architecture**:
-  * *Desktop App (Electron)*: Uses local loopback server OAuth redirection (port 8085). Encrypts the refresh token using Chromium's OS-native `safeStorage` API.
-  * *Mobile PWA / Web*: Uses Google Identity Services (GIS) token flow.
+* **Silent Background Sync**: Synchronizes to Supabase automatically on user actions (finish workout, delete log, schedule, edit definitions).
+* **Supabase Integration**: Secure PostgreSQL database backend managing multi-user data isolation via Row Level Security (RLS).
+* **Centralized Authentication**: Invite-only authentication system. 
+  * Self sign-up is disabled, users must be explicitly provisioned by an Admin via the in-app Admin Panel.
+  * Secures data across the Desktop App (Electron) and Mobile PWA using JWT session persistence.
 * **Local JSON Backups**: Manual exports and imports of full database JSON backups, supporting timestamp-based merge logic.
 
 ---
@@ -64,22 +64,18 @@ FitApp is architected as a **local-first application**. It runs completely clien
 graph TD
     UI[HTML5 / Tailwind UI] --> State[JavaScript State Engine]
     State --> DB[(IndexedDB / Dexie.js)]
-    State --> Sync[Sync Engine]
+    State --> Sync[Supabase Sync Engine]
     
     subgraph Desktop (Electron Wrapper)
         Bridge[Preload Bridge] --> MainProc[Main Process]
-        MainProc --> SafeStore[OS safeStorage API]
-        MainProc --> Loopback[Loopback OAuth HTTP Server]
     end
     
     subgraph Mobile / Web (PWA)
         SW[Service Worker] --> Cache[(Cache Storage)]
-        GIS[Google Identity Services]
     end
     
-    Sync --> |OAuth Auth Code Flow| Loopback
-    Sync --> |GIS Token Flow| GIS
-    Sync --> |Read/Write JSON| GDrive[User's Private Google Drive]
+    Sync --> |PostgREST| SupabaseDB[(Supabase PostgreSQL)]
+    Sync --> |GoTrue Auth| SupabaseAuth[Supabase Auth]
 ```
 
 ### 1. Storage & State Management
@@ -88,8 +84,6 @@ graph TD
 
 ### 2. Desktop Wrapper (Electron)
 * **Preload Bridge**: [preload.js](file:///c:/Users/amirb/Desktop/fitapp/preload.js) exposes a secure IPC context bridge (`window.electronAPI`) keeping node-integration disabled in the renderer window for optimal security.
-* **Secure Token Storage**: The Electron main process ([main.js](file:///c:/Users/amirb/Desktop/fitapp/main.js)) utilizes the chromium native `safeStorage` API to encrypt and decrypt the Google OAuth refresh token, saving it securely in OS-level user data folders.
-* **Loopback server**: Listens on `http://localhost:8085` to capture Google's redirect authorization code, performs the client-secret token exchange securely from the Node backend, and closes once authorized.
 
 ### 3. Progressive Web App (PWA) Offline Engine
 * **Service Worker**: [sw.js](file:///c:/Users/amirb/Desktop/fitapp/sw.js) implements a **Stale-While-Revalidate** caching strategy. It pre-caches all CSS, Dexie, Charts, and Lucide CDNs, enabling the app to load and function fully offline on mobile devices.
@@ -145,14 +139,11 @@ To load the app on your phone locally over WiFi:
 
 ---
 
-## 🔒 Security & Google Credentials Configuration
+## 🔒 Security & Supabase Architecture
 
-For multi-device sync, you must set up Google Cloud OAuth:
+FitApp Premium has been migrated to use **Supabase** for centralized data storage and authentication.
 
-| Credential Type | Used In | Requirements |
-| :--- | :--- | :--- |
-| **Desktop App ID** | Electron Desktop | No redirect URIs need to be manually registered. Requires **Client ID** and **Client Secret**. |
-| **Web Application ID** | Mobile/PWA Web | **Authorized JavaScript origins** and **Redirect URIs** must point to your hosted HTTPS URL. Requires **Client ID** (no secret). |
-
-> [!IMPORTANT]
-> Ensure the **Google Drive API** is enabled in your Google Cloud Console project, and the `https://www.googleapis.com/auth/drive.file` scope is added. In "Testing" mode, ensure your log-in email is listed under **Test Users** on the OAuth consent screen.
+* **Authentication**: Self sign-ups are **disabled**. The application operates on an invite-only model where an admin (e.g., `emyrkhan@fitapp.local`) can provision new accounts from the in-app Admin panel.
+* **Data Isolation**: All database tables (`exercises`, `routines`, `workout_logs`, `schedules`) are protected using Postgres **Row Level Security (RLS)**. Users can only query and mutate their own data (identified via `auth.uid()`).
+* **Global Exercises**: The `exercises` table allows for global system exercises (where `user_id` is null) which are visible to everyone, as well as user-created exercises that remain private.
+* **Web & Desktop Parity**: Both the Electron desktop application and the Mobile PWA use the exact same Supabase JS client and session management, providing a unified and secure syncing experience.
