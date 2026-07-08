@@ -11,6 +11,21 @@ function getLocalDateString(date) {
 }
 
 /**
+ * Checks if two YYYY-MM-DD strings fall on the same day of the week.
+ * @param {string} dateStr1 - First date.
+ * @param {string} dateStr2 - Second date.
+ * @returns {boolean} True if both are on the same day of the week.
+ */
+function isSameDayOfWeek(dateStr1, dateStr2) {
+  if (!dateStr1 || !dateStr2) return false;
+  const parseStr = str => {
+    const p = str.split('-');
+    return new Date(p[0], p[1] - 1, p[2]);
+  };
+  return parseStr(dateStr1).getDay() === parseStr(dateStr2).getDay();
+}
+
+/**
  * Calculates the local date string of the Monday of the week for a given reference date.
  * @param {Date} date - The reference date.
  * @returns {string} The formatted YYYY-MM-DD string of Monday of that week.
@@ -123,6 +138,7 @@ function getRoutineColorTheme(name) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     getLocalDateString,
+    isSameDayOfWeek,
     getStartOfWeekString,
     getCurrentWeekDates,
     getRoutineColorTheme
@@ -130,4 +146,5 @@ if (typeof module !== 'undefined' && module.exports) {
 } else if (typeof window !== 'undefined') {
   window.getCurrentWeekDates = getCurrentWeekDates;
   window.getRoutineColorTheme = getRoutineColorTheme;
+  window.isSameDayOfWeek = isSameDayOfWeek;
 }

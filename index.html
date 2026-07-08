@@ -902,9 +902,12 @@
         else if (hour < 18) greeting = 'Afternoon Grind';
         else greeting = 'Evening Warrior';
 
-        // Check if a routine is scheduled for today
+        // Check if a routine is scheduled for today (weekly recurring)
         const todayStr = getLocalDateString(new Date());
-        const todaysScheduled = state.schedules.find(s => s.date === todayStr);
+        const todaysLogs = state.workoutLogs.filter(log => log.date === todayStr);
+        const todaysScheduled = state.schedules.find(s => 
+          isSameDayOfWeek(s.date, todayStr) && !todaysLogs.some(l => l.routineId === s.routineId)
+        );
 
         let scheduledCardHtml = '';
         if (todaysScheduled) {
@@ -1433,15 +1436,7 @@
       try {
         await db.workoutLogs.add(newLog);
         
-        // Remove scheduled workout if it was today
-        const todayStr = getLocalDateString(new Date());
-        const todaysScheduled = state.schedules.find(s => s.date === todayStr && s.routineId == session.routineId);
-        if (todaysScheduled) {
-          todaysScheduled.deletedAt = now;
-          todaysScheduled.updatedAt = now;
-          await db.schedules.put(todaysScheduled);
-        }
-
+        // We no longer remove the scheduled workout because they are now weekly recurring.
         if (stopwatchInterval) clearInterval(stopwatchInterval);
         state.activeSession = null;
         await clearActiveSessionCache();
@@ -1755,8 +1750,8 @@
               
               // Find completed workout logs for this day
               const dayLogs = state.workoutLogs.filter(log => log.date === dateStr);
-              // Find scheduled routines for this day
-              const daySchedules = state.schedules.filter(s => s.date === dateStr);
+              // Find scheduled routines for this day (weekly recurring)
+              const daySchedules = state.schedules.filter(s => isSameDayOfWeek(s.date, dateStr));
 
               const isFuture = date.getTime() > today.getTime() && !isToday;
 
@@ -2710,8 +2705,8 @@
         const dayName = date.toLocaleDateString(undefined, { weekday: 'long' });
         const dateLabel = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
-        // Find scheduled routines for this date
-        const daySchedules = state.schedules.filter(s => s.date === dateStr);
+        // Find scheduled routines for this date (weekly recurring)
+        const daySchedules = state.schedules.filter(s => isSameDayOfWeek(s.date, dateStr));
 
         const colBorderClass = isToday 
           ? 'border-brand-500/40 shadow-lg shadow-brand-500/5 bg-indigo-950/10' 
