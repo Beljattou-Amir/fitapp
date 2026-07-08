@@ -1068,10 +1068,11 @@
                           <div class="grid grid-cols-12 gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider px-1 text-center items-center mt-1">
                             <div class="col-span-1 text-left">Set</div>
                             <div class="col-span-2">Type</div>
-                            <div class="col-span-3">Target</div>
+                            <div class="col-span-2">Previous</div>
+                            <div class="col-span-2">Target</div>
                             <div class="col-span-2">Weight</div>
                             <div class="col-span-2">Reps/${e.type === 'time' ? 'Time' : 'Reps'}</div>
-                            <div class="col-span-2">Status</div>
+                            <div class="col-span-1">Status</div>
                           </div>
 
                           <!-- Sets Rows -->
@@ -1097,8 +1098,11 @@
                                     </select>
                                   </div>
 
+                                  <!-- Previous -->
+                                  <div class="col-span-2 text-[10px] text-gray-500 font-semibold font-mono truncate">${set.previousText || '—'}</div>
+
                                   <!-- Target -->
-                                  <div class="col-span-3 text-[10px] text-gray-400 font-semibold font-mono truncate">${targetText}</div>
+                                  <div class="col-span-2 text-[10px] text-gray-400 font-semibold font-mono truncate">${targetText}</div>
 
                                   <!-- Actual Weight Input -->
                                   <div class="col-span-2">
@@ -1111,7 +1115,7 @@
                                   </div>
 
                                   <!-- Status Button -->
-                                  <div class="col-span-2 flex justify-center">
+                                  <div class="col-span-1 flex justify-center">
                                     <button onclick="toggleActiveSetCompletion('${bIdx}', '${subEx.exerciseId}', '${set.setId}', ${e.defaultRest || 0})" class="w-7 h-7 rounded-lg flex items-center justify-center border-2 transition-all active:scale-90 ${set.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-700 text-transparent hover:border-brand-500'}">
                                       <i data-lucide="check" class="w-4 h-4"></i>
                                     </button>
@@ -1254,6 +1258,58 @@
       }
     }
 
+    async function populatePreviousSessionData(blocks) {
+      if (!blocks || !state.workoutLogs) return;
+      const logsDesc = [...state.workoutLogs].sort((a, b) => new Date(b.date) - new Date(a.date) || b.updatedAt - a.updatedAt);
+      
+      for (const block of blocks) {
+        for (const subEx of block.exercises) {
+          const exerciseId = subEx.exerciseId;
+          const exDef = state.exercises.find(e => e.id === exerciseId);
+          if (!exDef) continue;
+          
+          let prevPayload = null;
+          for (const log of logsDesc) {
+            if (log.blocks) {
+              for (const b of log.blocks) {
+                const foundSubEx = b.exercises.find(e => e.exerciseId === exerciseId);
+                if (foundSubEx && foundSubEx.sets) {
+                  prevPayload = foundSubEx.sets.filter(s => s.completed);
+                  break;
+                }
+              }
+            }
+            if (prevPayload && prevPayload.length > 0) break;
+          }
+          
+          if (!prevPayload || prevPayload.length === 0) {
+            subEx.sets.forEach(s => s.previousText = '—');
+            continue;
+          }
+          
+          const prevGroups = { 'Normal': [], 'Warm-up': [], 'Dropset': [] };
+          prevPayload.forEach(s => {
+            const t = s.type || 'Normal';
+            if (prevGroups[t]) prevGroups[t].push(s);
+          });
+          
+          subEx.sets.forEach(s => {
+            const type = s.type || 'Normal';
+            if (prevGroups[type] && prevGroups[type].length > 0) {
+              const pSet = prevGroups[type].shift();
+              if (exDef.bodyweight) {
+                s.previousText = exDef.type === 'time' ? `BW × ${pSet.reps}s` : `BW × ${pSet.reps}`;
+              } else {
+                s.previousText = exDef.type === 'time' ? `${pSet.weight}kg × ${pSet.reps}s` : `${pSet.weight}kg × ${pSet.reps}`;
+              }
+            } else {
+              s.previousText = '—';
+            }
+          });
+        }
+      }
+    }
+
     // ================= WORKOUT START / END ACTIONS =================
     async function startWorkoutSession(routineId) {
       const routine = state.routines.find(r => r.id === routineId);
@@ -1284,6 +1340,7 @@
         blocks: activeBlocks
       };
 
+      await populatePreviousSessionData(state.activeSession.blocks);
       await saveActiveSessionCache();
       showToast(`Started routine: ${routine.name}`, 'info');
       switchTab('today');
@@ -1478,7 +1535,7 @@
     }
 
     function triggerAddExerciseToActiveWorkout() {
-      openPickerModal('Add Exercise Block', (exerciseId) => {
+      openPickerModal('Add Exercise Block', async (exerciseId) => {
         const blockId = 'b_' + generateUUID();
         state.activeSession.blocks.push({
           id: blockId,
@@ -1496,6 +1553,7 @@
             }]
           }]
         });
+        await populatePreviousSessionData(state.activeSession.blocks);
         saveActiveSessionCache();
         renderApp();
         showToast('Exercise block added to tracker.');
