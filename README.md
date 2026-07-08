@@ -147,3 +147,14 @@ FitApp Premium has been migrated to use **Supabase** for centralized data storag
 * **Data Isolation**: All database tables (`exercises`, `routines`, `workout_logs`, `schedules`) are protected using Postgres **Row Level Security (RLS)**. Users can only query and mutate their own data (identified via `auth.uid()`).
 * **Global Exercises**: The `exercises` table allows for global system exercises (where `user_id` is null) which are visible to everyone, as well as user-created exercises that remain private.
 * **Web & Desktop Parity**: Both the Electron desktop application and the Mobile PWA use the exact same Supabase JS client and session management, providing a unified and secure syncing experience.
+
+### Backend Deployment & Setup (Supabase)
+To set up a fresh Supabase project for FitApp Premium, you must deploy the schema, seed the default exercises, and deploy the user provisioning edge function:
+
+1. **Deploy Initial Schema**: Run the SQL script located at `supabase/migrations/001_initial_schema.sql` in your Supabase SQL Editor. This sets up the tables and Row Level Security (RLS) policies.
+2. **Seed Default Exercises**: Run the SQL script located at `supabase/migrations/002_seed_default_exercises.sql` to populate the global exercise library.
+3. **Deploy Edge Function**: Using the Supabase CLI, deploy the `provision-user` function to allow admins to create new users securely:
+   ```bash
+   supabase functions deploy provision-user
+   ```
+4. **Environment Configuration**: Update the `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `index.html` to point to your new Supabase project.
