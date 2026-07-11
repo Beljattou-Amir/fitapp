@@ -16,7 +16,7 @@ FitApp Premium is a local-first, highly-polished, offline-capable workout tracki
 * **Active Session Persistence (Cache)**: Persists active workout sessions in Dexie IndexedDB cache. If the application is closed or reloaded, state is fully recovered.
 * **Mid-Workout Customizations**: Dynamic options to add/delete sets, delete individual exercise blocks, or add new exercises from the global library mid-session.
 * **Inline Notes & Details**: Review instruction details and add persistent trainer/form notes directly inside active workout tracks.
-* **Celebration Recap Overlay**: Completion overlay displaying session duration (minutes), total completed sets, and total volume lifted (excluding warm-up sets).
+* **Celebration Recap Overlay**: Completion overlay displaying session duration (minutes), total completed sets, total volume lifted (excluding warm-up sets), and confetti animations.
 
 ### 2. Weekly Workout Strategy Board (Planner)
 * **Interactive Kanban Board**: Visual weekly planner (Monday to Sunday) allowing drag-and-drop repositioning of exercises.
@@ -53,6 +53,12 @@ FitApp Premium is a local-first, highly-polished, offline-capable workout tracki
   * Self sign-up is disabled, users must be explicitly provisioned by an Admin via the in-app Admin Panel.
   * Secures data across the Desktop App (Electron) and Mobile PWA using JWT session persistence.
 * **Local JSON Backups**: Manual exports and imports of full database JSON backups, supporting timestamp-based merge logic.
+
+### 7. Modern UI/UX Design & Administration
+* **Glassmorphism Aesthetic**: Uses deep dark modes, translucent glass panels, and vibrant gradient text for a premium feel.
+* **Interactive Modals & Drawers**: Smoothly animated overlays (sliding up/down) for account settings, creating routines, adding exercises, and reviewing analytics.
+* **Admin Dashboard**: In-app management panel available exclusively to admin users for user provisioning and oversight.
+* **Toast Notifications**: Non-intrusive on-screen notifications for network state changes, sync successes, and error feedback.
 
 ---
 
